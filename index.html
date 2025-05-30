@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle de Automação Travian</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        h1 {
+            color: #4a6da7;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #2196F3;
+            margin-top: 0;
+        }
+        .status-panel {
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 5px solid #ccc;
+        }
+        .status-panel.running {
+            border-left-color: #4CAF50;
+            background-color: #e8f5e9;
+        }
+        .status-panel.stopped {
+            border-left-color: #F44336;
+            background-color: #ffebee;
+        }
+        .status-label {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .status-details {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+        .cookie-panel {
+            background-color: #e3f2fd;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #2196F3;
+        }
+        .cookie-panel p {
+            margin-bottom: 15px;
+        }
+        .cookie-textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        .instructions-panel {
+            background-color: #fff8e1;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #FFC107;
+        }
+        .instructions-panel h3 {
+            margin-top: 0;
+            color: #FF9800;
+        }
+        .instructions-panel ol {
+            padding-left: 20px;
+        }
+        .instructions-panel li {
+            margin-bottom: 10px;
+        }
+        .instructions-panel code {
+            background-color: #f5f5f5;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .instructions-toggle {
+            background-color: #FFC107;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .instructions-toggle:hover {
+            background-color: #FFA000;
+        }
+        .import-button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        .import-button:hover:not(:disabled) {
+            background-color: #0b7dda;
+        }
+        .import-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .control-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        #startButton {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #startButton:hover:not(:disabled) {
+            background-color: #45a049;
+        }
+        #stopButton {
+            background-color: #F44336;
+            color: white;
+        }
+        #stopButton:hover:not(:disabled) {
+            background-color: #d32f2f;
+        }
+        .countdown {
+            font-size: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .log-container {
+            margin-top: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .log-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        #logMessages {
+            height: 200px;
+            overflow-y: auto;
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+        .timestamp {
+            color: #777;
+            font-size: 12px;
+        }
+        .refresh-button {
+            display: block;
+            margin: 10px auto;
+            background-color: #9E9E9E;
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        .refresh-button:hover {
+            background-color: #757575;
+        }
+        .alert {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .alert-success {
+            background-color: #dff0d8;
+            color: #3c763d;
+            border: 1px solid #d6e9c6;
+        }
+        .alert-danger {
+            background-color: #f2dede;
+            color: #a94442;
+            border: 1px solid #ebccd1;
+        }
+        .alert-warning {
+            background-color: #fcf8e3;
+            color: #8a6d3b;
+            border: 1px solid #faebcc;
+        }
+        .hidden {
+            display: none;
+        }
+        .cookie-status {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .cookie-status.valid {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .cookie-status.invalid {
+            background-color: #F44336;
+            color: white;
+        }
+        .screenshot {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #777;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Controle de Automação Travian</h1>
+        
+        <div id="alertContainer" class="hidden"></div>
+        
+        <div class="cookie-panel">
+            <h2>Importar Cookies do Travian</h2>
+            <p>Para usar a automação, você precisa importar os cookies da sua sessão do Travian.</p>
+            <div id="cookieStatus" style="margin-bottom: 15px;">
+                Status dos Cookies: <span id="cookieStatusText">Não importados</span>
+                <span id="cookieStatusBadge" class="cookie-status invalid">Inválido</span>
+            </div>
+            
+            <button id="instructionsToggle" class="instructions-toggle">Mostrar Instruções Detalhadas</button>
+            
+            <div id="instructionsPanel" class="instructions-panel hidden">
+                <h3>Como obter os cookies do Travian:</h3>
+                <ol>
+                    <li>Acesse o site do Travian (<a href="https://ts100.x10.america.travian.com" target="_blank">https://ts100.x10.america.travian.com</a>) e faça login normalmente.</li>
+                    <li>Após fazer login, pressione <code>F12</code> para abrir as Ferramentas de Desenvolvedor (ou clique com botão direito e selecione "Inspecionar").</li>
+                    <li>Na janela de ferramentas, clique na aba "Application" (Chrome/Edge) ou "Storage" (Firefox).</li>
+                    <li>No painel esquerdo, expanda "Cookies" e selecione o domínio do Travian.</li>
+                    <li>Você verá uma lista de cookies. Selecione todos os cookies (clique no primeiro, depois pressione Ctrl+A).</li>
+                    <li>Clique com o botão direito e selecione "Copy" ou pressione Ctrl+C para copiar.</li>
+                    <li>Cole o conteúdo no campo abaixo e clique em "Importar Cookies".</li>
+                </ol>
+                <p><strong>Alternativa mais fácil (Chrome/Edge):</strong></p>
+                <ol>
+                    <li>Instale a extensão <a href="https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm" target="_blank">Cookie-Editor</a>.</li>
+                    <li>Acesse o site do Travian e faça login normalmente.</li>
+                    <li>Clique no ícone da extensão Cookie-Editor na barra de ferramentas.</li>
+                    <li>Clique no botão "Export" e selecione "Export as JSON".</li>
+                    <li>Os cookies serão copiados para a área de transferência.</li>
+                    <li>Cole o conteúdo no campo abaixo e clique em "Importar Cookies".</li>
+                </ol>
+            </div>
+            
+            <textarea id="cookiesInput" class="cookie-textarea" placeholder="Cole os cookies do Travian aqui (formato JSON)"></textarea>
+            <button id="importCookiesButton" class="import-button" disabled>Importar Cookies</button>
+        </div>
+        
+        <div id="statusPanel" class="status-panel stopped">
+            <div class="status-label">Status: <span id="statusText">Parado</span></div>
+            <div class="status-details">
+                <div id="nextRunInfo">Nenhuma execução agendada</div>
+            </div>
+        </div>
+        
+        <div class="countdown" id="countdown"></div>
+        
+        <div class="control-buttons">
+            <button id="startButton" disabled>Iniciar Automação</button>
+            <button id="stopButton" disabled>Parar Automação</button>
+        </div>
+        
+        <div class="log-container">
+            <div class="log-title">Registro de Atividades:</div>
+            <div id="logMessages"></div>
+            <button class="refresh-button" id="refreshButton">Atualizar Status</button>
+        </div>
+        
+        <footer>
+            Automação Travian - Versão Ultra-Leve - Executa 100% na nuvem
+        </footer>
+    </div>
+
+    <script>
+        // Elementos da interface
+        const statusPanel = document.getElementById('statusPanel');
+        const statusText = document.getElementById('statusText');
+        const cookieStatusText = document.getElementById('cookieStatusText');
+        const cookieStatusBadge = document.getElementById('cookieStatusBadge');
+        const nextRunInfo = document.getElementById('nextRunInfo');
+        const countdown = document.getElementById('countdown');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const logMessages = document.getElementById('logMessages');
+        const refreshButton = document.getElementById('refreshButton');
+        const cookiesInput = document.getElementById('cookiesInput');
+        const importCookiesButton = document.getElementById('importCookiesButton');
+        const alertContainer = document.getElementById('alertContainer');
+        const instructionsToggle = document.getElementById('instructionsToggle');
+        const instructionsPanel = document.getElementById('instructionsPanel');
+        
+        // Variáveis de controle
+        let countdownInterval = null;
+        let isRunning = false;
+        let hasCookies = false;
+        
+        // Função para mostrar alerta
+        function showAlert(message, type = 'success') {
+            alertContainer.className = `alert alert-${type}`;
+            alertContainer.textContent = message;
+            alertContainer.classList.remove('hidden');
+            
+            // Esconder o alerta após 5 segundos
+            setTimeout(() => {
+                alertContainer.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // Função para formatar data e hora
+        function formatDateTime(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleString('pt-BR');
+        }
+        
+        // Função para formatar tempo restante
+        function formatTimeRemaining(ms) {
+            if (!ms) return '';
+            
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            
+            return `${minutes}m ${seconds}s`;
+        }
+        
+        // Função para atualizar o contador regressivo
+        function updateCountdown(nextRunTime) {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            
+            if (!nextRunTime || !isRunning) {
+                countdown.textContent = '';
+                return;
+            }
+            
+            const updateTimer = () => {
+                const now = new Date().getTime();
+                const nextRun = new Date(nextRunTime).getTime();
+                const timeRemaining = nextRun - now;
+                
+                if (timeRemaining <= 0) {
+                    countdown.textContent = 'Executando agora...';
+                    clearInterval(countdownInterval);
+                    // Atualizar status após alguns segundos para refletir a nova programação
+                    setTimeout(fetchStatus, 5000);
+                } else {
+                    countdown.textContent = `Próxima execução em: ${formatTimeRemaining(timeRemaining)}`;
+                }
+            };
+            
+            updateTimer();
+            countdownInterval = setInterval(updateTimer, 1000);
+        }
+        
+        // Função para adicionar mensagem ao log
+        function addLogMessage(message) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('pt-BR');
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            
+            logMessages.prepend(logEntry);
+            
+            // Limitar número de mensagens
+            if (logMessages.children.length > 50) {
+                logMessages.removeChild(logMessages.lastChild);
+            }
+        }
+        
+        // Função para atualizar a interface com base no status
+        function updateUI(status) {
+            isRunning = status.isRunning;
+            hasCookies = status.hasCookies;
+            
+            // Atualizar texto e classe do painel de status
+            statusText.textContent = isRunning ? 'Em Execução' : 'Parado';
+            statusPanel.className = isRunning ? 'status-panel running' : 'status-panel stopped';
+            
+            // Atualizar status dos cookies
+            if (hasCookies) {
+                cookieStatusText.textContent = 'Importados';
+                cookieStatusBadge.textContent = 'Válido';
+                cookieStatusBadge.className = 'cookie-status valid';
+            } else {
+                cookieStatusText.textContent = 'Não importados';
+                cookieStatusBadge.textContent = 'Inválido';
+                cookieStatusBadge.className = 'cookie-status invalid';
+            }
+            
+            // Atualizar informações da próxima execução
+            if (isRunning && status.nextRunTime) {
+                nextRunInfo.textContent = `Próxima execução agendada para: ${formatDateTime(status.nextRunTime)}`;
+                updateCountdown(status.nextRunTime);
+            } else {
+                nextRunInfo.textContent = 'Nenhuma execução agendada';
+                updateCountdown(null);
+            }
+            
+            // Atualizar estado dos botões
+            startButton.disabled = isRunning || !hasCookies;
+            stopButton.disabled = !isRunning;
+        }
+        
+        // Função para buscar o status atual da automação
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                const status = await response.json();
+                updateUI(status);
+            } catch (error) {
+                addLogMessage(`Erro ao buscar status: ${error.message}`);
+            }
+        }
+        
+        // Função para validar o formato JSON dos cookies
+        function validateCookiesInput(input) {
+            if (!input.trim()) {
+                return false;
+            }
+            
+            try {
+                const cookies = JSON.parse(input);
+                return Array.isArray(cookies) && cookies.length > 0 && cookies.every(cookie => 
+                    typeof cookie === 'object' && 
+                    typeof cookie.name === 'string' && 
+                    typeof cookie.value === 'string'
+                );
+            } catch (error) {
+                return false;
+            }
+        }
+        
+        // Função para importar cookies
+        async function importCookies() {
+            const cookiesText = cookiesInput.value.trim();
+            
+            if (!validateCookiesInput(cookiesText)) {
+                showAlert('Formato de cookies inválido. Verifique as instruções e tente novamente.', 'warning');
+                return;
+            }
+            
+            try {
+                importCookiesButton.disabled = true;
+                addLogMessage('Importando cookies...');
+                
+                const cookies = JSON.parse(cookiesText);
+                
+                const response = await fetch('/api/import-cookies', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ cookies })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                addLogMessage(result.message);
+                
+                if (result.success) {
+                    showAlert('Cookies importados com sucesso!', 'success');
+                    cookiesInput.value = ''; // Limpar campo por segurança
+                    updateUI(result.status);
+                } else {
+                    showAlert(result.message, 'danger');
+                }
+            } catch (error) {
+                addLogMessage(`Erro ao importar cookies: ${error.message}`);
+                showAlert(`Erro ao importar cookies: ${error.message}`, 'danger');
+            } finally {
+                importCookiesButton.disabled = false;
+            }
+        }
+        
+        // Função para iniciar a automação
+        async function startAutomation() {
+            try {
+                startButton.disabled = true;
+                addLogMessage('Iniciando automação...');
+                
+                const response = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                addLogMessage(result.message);
+                
+                if (result.success) {
+                    showAlert('Automação iniciada com sucesso!', 'success');
+                    updateUI(result.status);
+                } else {
+                    showAlert(result.message, 'warning');
+                    startButton.disabled = !hasCookies;
+                }
+            } catch (error) {
+                addLogMessage(`Erro ao iniciar automação: ${error.message}`);
+                showAlert(`Erro ao iniciar automação: ${error.message}`, 'danger');
+                startButton.disabled = !hasCookies;
+            }
+        }
+        
+        // Função para parar a automação
+        async function stopAutomation() {
+            try {
+                stopButton.disabled = true;
+                addLogMessage('Parando automação...');
+                
+                const response = await fetch('/api/stop', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                addLogMessage(result.message);
+                
+                if (result.success) {
+                    showAlert('Automação parada com sucesso!', 'success');
+                    updateUI(result.status);
+                } else {
+                    showAlert(result.message, 'warning');
+                    stopButton.disabled = isRunning;
+                }
+            } catch (error) {
+                addLogMessage(`Erro ao parar automação: ${error.message}`);
+                showAlert(`Erro ao parar automação: ${error.message}`, 'danger');
+                stopButton.disabled = !isRunning;
+            }
+        }
+        
+        // Event listeners
+        cookiesInput.addEventListener('input', () => {
+            importCookiesButton.disabled = !validateCookiesInput(cookiesInput.value);
+        });
+        
+        importCookiesButton.addEventListener('click', importCookies);
+        startButton.addEventListener('click', startAutomation);
+        stopButton.addEventListener('click', stopAutomation);
+        refreshButton.addEventListener('click', () => {
+            addLogMessage('Atualizando status...');
+            fetchStatus();
+        });
+        
+        instructionsToggle.addEventListener('click', () => {
+            const isHidden = instructionsPanel.classList.contains('hidden');
+            instructionsPanel.classList.toggle('hidden');
+            instructionsToggle.textContent = isHidden ? 'Ocultar Instruções' : 'Mostrar Instruções Detalhadas';
+        });
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            addLogMessage('Página carregada. Buscando status inicial...');
+            fetchStatus();
+            
+            // Verificar status periodicamente (a cada 30 segundos)
+            setInterval(fetchStatus, 30000);
+        });
+    </script>
+</body>
+</html>
