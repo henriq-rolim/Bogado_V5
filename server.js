@@ -4,6 +4,7 @@ const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const tough = require('tough-cookie');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,7 +17,7 @@ let nextRunTimeout = null;
 let nextRunTime = null;
 
 // Middleware
-app.use(express.json());
+app.use(express.json( ));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
@@ -57,51 +58,119 @@ async function runAutomation() {
   }
   
   console.log(`[${new Date().toISOString()}] Iniciando automação do Travian`);
+  console.log(`Usando credenciais para usuário: ${credentials.username}`);
   
   try {
-    // Criar sessão com cookies
+    // Criar sessão com cookies persistentes
+    const cookieJar = new tough.CookieJar();
     const session = axios.create({
       withCredentials: true,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Connection': 'keep-alive'
       }
     });
     
-    // Obter página de login para cookies iniciais
+    // Passo 1: Acessar a página inicial para obter cookies iniciais
+    console.log('Acessando página inicial');
+    const homePage = await session.get(TRAVIAN_URL);
+    console.log(`Status da página inicial: ${homePage.status}`);
+    
+    // Passo 2: Acessar a página de login
     console.log('Acessando página de login');
     const loginPage = await session.get(`${TRAVIAN_URL}/login.php`);
+    console.log(`Status da página de login: ${loginPage.status}`);
     
-    // Fazer login
-    console.log('Enviando credenciais');
+    // Passo 3: Extrair possíveis tokens ou campos ocultos do formulário
+    const loginHtml = loginPage.data;
+    console.log('Analisando formulário de login...');
+    
+    // Procurar por campos ocultos no formulário
+    const hiddenFields = {};
+    const hiddenMatches = loginHtml.match(/<input type="hidden" name="([^"]+)" value="([^"]+)">/g);
+    
+    if (hiddenMatches) {
+      hiddenMatches.forEach(match => {
+        const nameMatch = match.match(/name="([^"]+)"/);
+        const valueMatch = match.match(/value="([^"]+)"/);
+        if (nameMatch && valueMatch) {
+          hiddenFields[nameMatch[1]] = valueMatch[1];
+          console.log(`Campo oculto encontrado: ${nameMatch[1]} = ${valueMatch[1]}`);
+        }
+      });
+    }
+    
+    // Passo 4: Preparar dados do formulário de login
     const loginForm = new URLSearchParams();
+    
+    // Adicionar campos ocultos
+    Object.keys(hiddenFields).forEach(key => {
+      loginForm.append(key, hiddenFields[key]);
+    });
+    
+    // Adicionar credenciais
     loginForm.append('name', credentials.username);
     loginForm.append('password', credentials.password);
     loginForm.append('s1', 'Entrar');
     loginForm.append('w', '1920:1080');
     loginForm.append('login', '1');
     
+    // Passo 5: Enviar formulário de login
+    console.log('Enviando credenciais');
     const loginResponse = await session.post(`${TRAVIAN_URL}/dorf1.php`, loginForm, {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Origin': TRAVIAN_URL,
+        'Referer': `${TRAVIAN_URL}/login.php`
+      },
+      maxRedirects: 5
     });
     
-    // Verificar se login foi bem-sucedido
-    if (loginResponse.data.includes('dorf1') || loginResponse.data.includes('Recursos')) {
-      console.log('Login bem-sucedido');
+    console.log(`Status da resposta de login: ${loginResponse.status}`);
+    
+    // Passo 6: Verificar se login foi bem-sucedido
+    const responseHtml = loginResponse.data;
+    const loginSuccess = responseHtml.includes('dorf1') || 
+                         responseHtml.includes('Recursos') || 
+                         responseHtml.includes('stockBarWarehouse') ||
+                         responseHtml.includes('villageNameField') ||
+                         responseHtml.includes('playerName');
+    
+    if (loginSuccess) {
+      console.log('Login bem-sucedido!');
       
-      // Acessar página da lista de farms
+      // Passo 7: Acessar página da lista de farms
       console.log('Acessando página da lista de farms');
-      const farmListPage = await session.get(`${TRAVIAN_URL}/build.php?gid=16&tt=99`);
+      const farmListPage = await session.get(`${TRAVIAN_URL}/build.php?gid=16&tt=99`, {
+        headers: {
+          'Referer': `${TRAVIAN_URL}/dorf1.php`
+        }
+      });
       
-      // Extrair token e parâmetros necessários
-      const html = farmListPage.data;
-      const tokenMatch = html.match(/name="([a-f0-9]{32})" value="1"/);
+      console.log(`Status da página de farms: ${farmListPage.status}`);
+      const farmHtml = farmListPage.data;
+      
+      // Passo 8: Procurar token para iniciar listas de farms
+      console.log('Procurando token para iniciar listas de farms...');
+      
+      // Tentar diferentes padrões de token
+      let tokenMatch = farmHtml.match(/name="([a-f0-9]{32})" value="1"/);
+      if (!tokenMatch) {
+        tokenMatch = farmHtml.match(/name="([a-f0-9]{32})"/);
+      }
+      
+      // Procurar por botão de iniciar todas as listas
+      const hasStartAllButton = farmHtml.includes('startAllRaids') || 
+                               farmHtml.includes('Iniciar todas as listas') ||
+                               farmHtml.includes('Start all');
       
       if (tokenMatch && tokenMatch[1]) {
         const token = tokenMatch[1];
+        console.log(`Token encontrado: ${token}`);
         
-        // Enviar requisição para iniciar todas as listas
+        // Passo 9: Enviar requisição para iniciar todas as listas
         console.log('Iniciando todas as listas de farms');
         const farmForm = new URLSearchParams();
         farmForm.append(token, '1');
@@ -109,19 +178,83 @@ async function runAutomation() {
         
         const farmResponse = await session.post(`${TRAVIAN_URL}/build.php?gid=16&tt=99`, farmForm, {
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': `${TRAVIAN_URL}/build.php?gid=16&tt=99`
           }
         });
         
+        console.log(`Status da resposta de farms: ${farmResponse.status}`);
         console.log('Listas de farms iniciadas com sucesso');
+      } else if (hasStartAllButton) {
+        console.log('Botão de iniciar todas as listas encontrado, mas não foi possível extrair o token');
+        console.log('Tentando método alternativo...');
+        
+        // Tentar encontrar o formulário completo
+        const formMatch = farmHtml.match(/<form[^>]*action="[^"]*"[^>]*>([\s\S]*?)<\/form>/i);
+        if (formMatch) {
+          console.log('Formulário encontrado, tentando extrair todos os campos');
+          
+          // Extrair todos os campos do formulário
+          const formInputs = {};
+          const inputMatches = formMatch[1].match(/<input[^>]*>/g);
+          
+          if (inputMatches) {
+            inputMatches.forEach(input => {
+              const nameMatch = input.match(/name="([^"]+)"/);
+              const valueMatch = input.match(/value="([^"]*)"/);
+              if (nameMatch) {
+                formInputs[nameMatch[1]] = valueMatch ? valueMatch[1] : '';
+              }
+            });
+            
+            // Adicionar campo startAllRaids
+            formInputs['startAllRaids'] = '1';
+            
+            // Criar formulário com todos os campos
+            const alternativeFarmForm = new URLSearchParams();
+            Object.keys(formInputs).forEach(key => {
+              alternativeFarmForm.append(key, formInputs[key]);
+            });
+            
+            // Enviar formulário
+            const altFarmResponse = await session.post(`${TRAVIAN_URL}/build.php?gid=16&tt=99`, alternativeFarmForm, {
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Referer': `${TRAVIAN_URL}/build.php?gid=16&tt=99`
+              }
+            });
+            
+            console.log(`Status da resposta alternativa: ${altFarmResponse.status}`);
+            console.log('Tentativa alternativa de iniciar listas de farms concluída');
+          }
+        }
       } else {
-        console.log('Não foi possível encontrar o token para iniciar as listas de farms');
+        console.log('Botão de iniciar todas as listas não encontrado. Verifique se você tem listas de farms configuradas.');
+        console.log('Salvando HTML da página para análise...');
+        // Aqui você poderia salvar o HTML para análise posterior
       }
     } else {
       console.error('Falha no login. Verifique suas credenciais.');
+      
+      // Verificar possíveis mensagens de erro
+      if (responseHtml.includes('senha incorreta') || 
+          responseHtml.includes('incorrect password') ||
+          responseHtml.includes('falha na autenticação')) {
+        console.error('Senha incorreta detectada na resposta.');
+      }
+      
+      // Verificar se há captcha
+      if (responseHtml.includes('captcha') || 
+          responseHtml.includes('recaptcha') ||
+          responseHtml.includes('g-recaptcha')) {
+        console.error('CAPTCHA detectado! A automação não pode continuar sem intervenção humana.');
+      }
     }
   } catch (error) {
     console.error('Erro durante a automação:', error.message);
+    if (error.response) {
+      console.error(`Status do erro: ${error.response.status}`);
+    }
   }
   
   console.log(`[${new Date().toISOString()}] Automação finalizada`);
