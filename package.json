@@ -1,0 +1,24 @@
+{
+  "name": "travian-automation",
+  "version": "1.0.0",
+  "description": "Automates Travian farm list using Playwright and Browserless with web control interface",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "travian",
+    "playwright",
+    "automation",
+    "browserless",
+    "railway",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "playwright-core": "^1.44.1"
+  }
+}
